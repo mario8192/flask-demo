@@ -1,10 +1,13 @@
-from flask import Flask, render_template, url_for, request, redirect
+from flask import Flask, flash, render_template, url_for, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+app.config['SECRET_KEY'] = "abc123"
+app.config['SESSION_TYPE'] = 'filesystem'
 db = SQLAlchemy(app)
+
 
 class Todo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -19,14 +22,17 @@ class Todo(db.Model):
 def index():
     if request.method == 'POST':
         task_content = request.form['content']
-        new_task = Todo(content=task_content)
-
-        try:
-            db.session.add(new_task)
-            db.session.commit()
+        if len(task_content) > 0:
+            new_task = Todo(content=task_content)
+            try:
+                db.session.add(new_task)
+                db.session.commit()
+                return redirect('/')
+            except:
+                return 'There was an issue adding your task'
+        else:
+            flash('Task cannot be empty')
             return redirect('/')
-        except:
-            return 'There was an issue adding your task'
 
     else:
         tasks = Todo.query.order_by(Todo.date_created).all()
@@ -44,19 +50,22 @@ def delete(id):
     except:
         return 'There was a problem deleting that task'
 
+
 @app.route('/update/<int:id>', methods=['GET', 'POST'])
 def update(id):
     task = Todo.query.get_or_404(id)
 
     if request.method == 'POST':
-        task.content = request.form['content']
-
-        try:
-            db.session.commit()
-            return redirect('/')
-        except:
-            return 'There was an issue updating your task'
-
+        if len(request.form['content']) > 0:
+            task.content = request.form['content']
+            try:
+                db.session.commit()
+                return redirect('/')
+            except:
+                return 'There was an issue updating your task'
+        else:
+            flash('Task cannot be empty')
+            return redirect('/update/'+str(id))
     else:
         return render_template('update.html', task=task)
 
